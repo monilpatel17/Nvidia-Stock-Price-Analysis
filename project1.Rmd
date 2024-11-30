@@ -1,0 +1,231 @@
+---
+title: "Project 1: NVIDIA Stock Price Analysis"
+author: "Monil Patel"
+date: "2024-03-31"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# I. Background and Problem definition
+## Let start our Analysis
+To conduct a thorough examination of NVIDIA's stock performance, we propose an analysis focused on the correlation between daily high-low fluctuations and trading volumes. This will involve a detailed investigation of opening and closing prices, alongside trading volumes, to discern any recurring patterns over a specified time period.
+
+### Importing the Libraries
+We are using **ggplot2** plotting system for creating complex and aesthetically pleasing data visualizations, **quantmod** for designed for quantitative financial modeling and for charting, **dplyr** for data manipulation package providing a set of functions for efficiently transforming and summarizing large datasets, and **TTR** Stands for 'Technical Trading Rules'; used for computing a wide variety of technical indicators used in trading and financial analysis
+
+```{r, message = FALSE, warning=FALSE}
+library(ggplot2)
+library(quantmod)
+library(dplyr)
+library(TTR)
+```
+
+
+### Importing the Data
+I have acquired financial data from Yahoo Finance, formatted as a CSV file for convenient access. This dataset encompasses five key metrics: daily highs, lows, opening, and closing prices, along with the volume of trades. For analytical purposes, the trading volume will be specifically referred to as 'stock.volume', aligning with the common financial terminology 'On Balance Volume' (OBV).
+
+```{r}
+data.stock <- read.csv("NVDA.csv")
+stock.volume <- data.stock$Volume
+```
+
+
+
+
+## Brief Summary of the Data
+Before we begin analyzing the data, let's first take a moment to understand and acquaint ourselves with the dataset we have imported.
+
+### Summary of Nvidia stock report
+The report presents various metrics, spanning from March 2023 to March 2024, detailing Nvidia's daily stock performance. It includes the opening and closing prices for each day, along with the **daily highs, lows, and volume of shares traded**. Additionally, the report provides the adjusted closing prices, labeled as **"Adj. Close"**, offering a more nuanced view of Nvidia's stock movements over the specified period.  
+
+
+```{r}
+summary(data.stock)
+```
+
+\newpage
+# II. Data wrangling, munging and cleaning
+In this section, we will engage in data manipulation, with the objective of enhancing our analytical framework. This will involve the addition of two new columns: **mean_column** and **mean_price**, which are intended to augment our dataset for more in-depth analysis.
+
+```{r}
+## Converting data into a format recognized as valid date values.
+data.stock$Date <- as.Date(data.stock$Date)
+
+## Introduce two additional columns titled 'Mean_Column' and 'Mean_Price'.
+data.stock <- data.stock %>%
+  mutate(mean_column = (High + Low) / 2)
+
+data.stock <- data.stock %>%
+  mutate(mean_price = (Open + Close) / 2)
+
+
+## Nvidia
+data_nvidia <- data.frame(Date = data.stock$Date, Prices = data.stock$mean_price)
+
+## We are generating and analyzing historical data from NASDAQ.
+ndx <- read.csv("/Users/monilpatel/DAT_301/project1/^NDX.csv")
+ndx$Date <- as.Date(ndx$Date)
+ndx_high <- ndx$High
+ndx_low <- ndx$Low
+data_ndx <- data.frame(Date = ndx$Date, Prices = ndx_high)
+
+
+## We are generating and analyzing historical data from AMD(Nvidia's competitor)
+amd <- read.csv("/Users/monilpatel/DAT_301/project1/AMD.csv")
+amd <- amd %>%
+  mutate(mean_price = (High + Low) / 2)
+amd$Date <- as.Date(amd$Date)
+data_amd <- data.frame(Date = amd$Date, Prices = amd$mean_price)
+colnames(ndx)
+colnames(data.stock)
+colnames(data_amd)
+
+
+```
+
+
+
+
+
+\newpage
+# III. Exploratory Data Analysis
+In this section, we will utilize the ggplot2 library to generate four distinct types of graphs: three line plots and one histogram. These visualizations aim to provide a detailed analysis of the trend in Nvidia's stock over the year, as well as insights into the performance of various indicators.
+
+#### 1) Daily High Vs Date:\newline
+In this graph, we will examine the trend in daily maximum prices, which represent the highest recorded prices for each day. The X-axis will denote the months, while the Y-axis will indicate the corresponding prices.
+
+```{r,message = FALSE, warning=FALSE}
+data <- data.frame(Date = data.stock$Date, Prices = data.stock$High)
+
+ggplot(data, aes(x = Date, y = Prices)) +
+  geom_line(color="black") +
+    theme_minimal() +
+    labs(title="ANALYSIS OF DAILY HIGH TREND", x="Date", y="Daily High") 
+```
+
+
+\newpage
+#### 2) Daily Low Vs Date:\newline
+In this graph, we will examine the trend in daily low prices, representing the minimum price level reached each day. The horizontal axis (X-axis) denotes the months, while the vertical axis (Y-axis) indicates the corresponding price values.
+
+```{r}
+data <- data.frame(Date = data.stock$Date, Prices = data.stock$Low)
+ggplot(data, aes(x = Date, y = Prices)) +
+  geom_line(color="black") +
+    theme_minimal() +
+    labs(title="ANALYSIS OF DAILY LOW TREND", x="Date", y="Daily Low")
+```
+
+\newpage
+#### 3) Mean Price Vs Date:\newline
+In this graph, we analyze the daily trend of the average price of Nvidia stock. The average price is determined by calculating the mean of the daily opening and closing prices. The X-axis of the chart represents the average price, while the Y-axis displays the corresponding dates.
+
+```{r}
+data <- data.frame(Date = data.stock$Date, Prices = data.stock$mean_price)
+ggplot(data, aes(x = Date, y = Prices)) +
+  geom_line(color="black") +
+    theme_minimal()+
+    labs(title="MEAN PRICE VS DATA", x="Date", y="mean Price")
+```
+
+\newpage
+#### 4) On Balance Volume Vs Date:\newline
+In this graph, we will examine the daily trend in trading volume, which represents the aggregate value of both buying and selling transactions for any given stock. The X-axis of our chart will denote the months, while the Y-axis will quantify the total trading volume.
+
+```{r}
+data <- data.frame(Date = data.stock$Date, Prices = stock.volume)
+ggplot(data, aes(x = Date, y = Prices )) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "STOCK VOLUME OVER TIME", x = "Date", y = "Volume")
+```
+
+
+
+\newpage
+# IV. Data Visualization
+In this Section, We will endeavor to refine the data gathered from previous analyses by applying a moving average technique to enhance its precision and utility.
+To enhance our technical analysis, let's construct a chart incorporating three **exponential moving averages (EMAs) with periods of 20, 50, and 200 days**, respectively. These EMAs will be calculated based on the mean values of the high and low prices for each day. Additionally, **we will include the On-Balance Volume (OBV) indicator to provide further insight into market trends and investor sentiment**. This comprehensive approach should offer a framework for analyzing market dynamics.
+
+```{r}
+## Creating three new columns to represent three distinct averages.
+data.stock$EMA20 <- EMA(data.stock$mean_column, n=20)
+data.stock$EMA50 <- EMA(data.stock$mean_column, n=50)
+data.stock$EMA200 <- EMA(data.stock$mean_column, n=200)
+
+scaling_factor <- max(data.stock$mean_column, na.rm = TRUE) / max(data.stock$Volume, na.rm = TRUE)
+
+ggplot(data.stock, aes(x = Date)) +
+  geom_bar(aes(y = Volume * scaling_factor), stat = "identity", fill = "grey", alpha = 0.5) +
+  geom_line(aes(y = mean_column, colour = "Stock Mean Price"), na.rm = TRUE) +
+  geom_line(aes(y = EMA20, colour = "20-day EMA"), na.rm = TRUE) +
+  geom_line(aes(y = EMA50, colour = "50-day EMA"), na.rm = TRUE) +
+  geom_line(aes(y = EMA200, colour = "200-day EMA"), na.rm = TRUE) +
+  scale_y_continuous(name = "Stock Price") +
+  labs(title = "      STOCK MEAN PRICE, EMAs, and VOLUME",
+       x = "Date",
+       y = "Price") +
+  scale_colour_manual(values = c("Stock Mean Price" = "black",
+                                 "20-day EMA" = "red",
+                                 "50-day EMA" = "green",
+                                 "200-day EMA" = "blue")) +
+  theme_minimal()
+
+
+```
+
+\newpage
+## Nvidia VS AMD
+To gain a deeper insight into Nvidia's financial growth, we will conduct a comparative analysis of Nvidia's stock prices against those of AMD. AMD is Nvidis's biggest competitor in chip manufacturing market.
+
+```{r}
+ggplot() +
+  geom_line(data = data_nvidia, aes(x = Date, y = Prices, color="NVIDIA")) +
+  geom_line(data = data_amd, aes(x = Date, y = Prices, color="AMD")) +
+  theme_minimal() +
+  labs(title="NVIDIA VS AMD", x="Date", y="Price") +
+  scale_color_manual(values=c("NVIDIA"="black", "AMD"="blue"), 
+                     name="Company", 
+                     labels=c("AMD", "NVIDIA"))
+
+
+```
+
+
+
+
+
+
+\newpage
+# Conclusion
+
+### Key Findings
+**1. Trend Analysis:** The line plots for Daily High, Low, and Mean Prices against Dates provide a comprehensive view of NVIDIA's stock performance over the period from March 2023 to March 2024. We observed noticeable fluctuations in the stock prices, with distinct peaks and troughs indicating periods of volatility.
+
+**2. Trading Volume Correlation:** The On-Balance Volume (OBV) analysis revealed patterns in trading volume, correlating with price movements. Increases in volume often coincided with significant price changes, suggesting heightened investor activity during these periods.
+
+**3. Moving Averages:** The application of Exponential Moving Averages (EMAs) provided an in-depth perspective. The 20-day, 50-day, and 200-day EMAs helped identify short-term, medium-term, and long-term trends, respectively. For instance, crossover points between the short-term (20-day) and long-term (200-day) EMAs might have indicated potential trend reversals.
+
+### Final Thoughts
+NVIDIA's stock performance, characterized by its volatility and varying trading volumes, presents both challenges and opportunities. By employing technical analysis tools like EMAs and OBV, stakeholders can gain valuable insights for informed decision-making. It's important to remain adaptable and responsive to the ever-changing market dynamics.
+
+
+
+
+
+
+
+# Source Links
+
+## All information sourced from Yahoo Finance.
+**Nvidia: ** https://query1.finance.yahoo.com/v7/finance/download/NVDA?period1=1680297900&period2=1711920300&interval=1d&events=history&includeAdjustedClose=true
+
+**AMD: ** https://query1.finance.yahoo.com/v7/finance/download/AMD?period1=1680326526&period2=1711948926&interval=1d&events=history&includeAdjustedClose=true
+
+**Nasdaq: **https://query1.finance.yahoo.com/v7/finance/download/%5EIXIC?period1=1680328065&period2=1711950465&interval=1d&events=history&includeAdjustedClose=true
+
+## Video detail
+https://asu.zoom.us/rec/share/8IT5d0_2XGgdQNg4cQZ8VevgZX2WoEoruOcVkDO-BzOOLTUPcRdzqn-dBNjuJet-.CUdVQC4zBSZchZfi?startTime=1711951662000 \newline
+Passcode: gz4$!8@#
